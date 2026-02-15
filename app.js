@@ -113,6 +113,7 @@ class UnityPackageViewer {
         document.getElementById('filterAdded').addEventListener('change', () => this.updateDiffList());
         document.getElementById('filterRemoved').addEventListener('change', () => this.updateDiffList());
         document.getElementById('filterModified').addEventListener('change', () => this.updateDiffList());
+        document.getElementById('filterMoved').addEventListener('change', () => this.updateDiffList());
     }
 
     setupCompareEventListeners() {
@@ -242,12 +243,14 @@ class UnityPackageViewer {
         const filterAdded = document.getElementById('filterAdded').checked;
         const filterRemoved = document.getElementById('filterRemoved').checked;
         const filterModified = document.getElementById('filterModified').checked;
+        const filterMoved = document.getElementById('filterMoved').checked;
 
         // フィルター適用
         const filtered = diffs.filter(diff => {
             if (diff.status === 'added') return filterAdded;
             if (diff.status === 'removed') return filterRemoved;
             if (diff.status === 'modified') return filterModified;
+            if (diff.status === 'moved') return filterMoved;
             return false;
         });
 
@@ -276,11 +279,50 @@ class UnityPackageViewer {
         const assets2 = pkg2.assets;
 
         const seen = new Set();
+        const guidToPath1 = new Map();
+        const guidToPath2 = new Map();
+
+        for (const [path, asset1] of Object.entries(assets1)) {
+            if (asset1 && asset1.guid) {
+                guidToPath1.set(asset1.guid, path);
+            }
+        }
+
+        for (const [path, asset2] of Object.entries(assets2)) {
+            if (asset2 && asset2.guid) {
+                guidToPath2.set(asset2.guid, path);
+            }
+        }
+
+        const movedGuids = new Set();
+
+        for (const [guid, path1] of guidToPath1.entries()) {
+            const path2 = guidToPath2.get(guid);
+            if (path2 && path2 !== path1) {
+                const asset1 = assets1[path1];
+                const asset2 = assets2[path2];
+                movedGuids.add(guid);
+                diffs.push({
+                    path: path2,
+                    fromPath: path1,
+                    toPath: path2,
+                    status: 'moved',
+                    size1: asset1 ? asset1.size : 0,
+                    size2: asset2 ? asset2.size : 0,
+                    asset1,
+                    asset2
+                });
+            }
+        }
 
         // pkg1 に存在するファイルをチェック
         for (const [path, asset1] of Object.entries(assets1)) {
             seen.add(path);
             const asset2 = assets2[path];
+
+            if (asset1 && movedGuids.has(asset1.guid)) {
+                continue;
+            }
 
             if (!asset2) {
                 // 削除されたファイル
@@ -308,6 +350,9 @@ class UnityPackageViewer {
         // pkg2 に存在するが pkg1 に存在しないファイル
         for (const [path, asset2] of Object.entries(assets2)) {
             if (!seen.has(path)) {
+                if (asset2 && movedGuids.has(asset2.guid)) {
+                    continue;
+                }
                 diffs.push({
                     path,
                     status: 'added',
@@ -326,20 +371,32 @@ class UnityPackageViewer {
         const element = document.createElement('div');
         element.className = `diff-item ${diff.status}`;
 
-        const filename = diff.path.split('/').pop();
-        const sizeChange = this.formatSizeChange(diff.size1, diff.size2);
+        const displayPath = diff.status === 'moved'
+            ? `${diff.fromPath} → ${diff.toPath}`
+            : diff.path;
+
+        let guidLabel = '';
+        if (diff.asset1 && diff.asset2 && diff.asset1.guid !== diff.asset2.guid) {
+            guidLabel = `GUID: ${diff.asset1.guid} → ${diff.asset2.guid}`;
+        } else if (diff.asset2 && diff.asset2.guid) {
+            guidLabel = `GUID: ${diff.asset2.guid}`;
+        } else if (diff.asset1 && diff.asset1.guid) {
+            guidLabel = `GUID: ${diff.asset1.guid}`;
+        }
 
         element.innerHTML = `
             <div>
                 <span class="diff-item-status ${diff.status}">
                     ${this.getStatusLabel(diff.status)}
                 </span>
-                <span class="diff-item-path">${diff.path}</span>
+                <span class="diff-item-path">${displayPath}</span>
             </div>
             <div class="diff-item-info">
                 ${diff.status === 'removed' ? `サイズ: ${this.formatBytes(diff.size1)}` : ''}
                 ${diff.status === 'added' ? `サイズ: ${this.formatBytes(diff.size2)}` : ''}
                 ${diff.status === 'modified' ? `サイズ変更: ${diff.size1 > 0 ? this.formatBytes(diff.size1) : '新規'} → ${this.formatBytes(diff.size2)}` : ''}
+                ${diff.status === 'moved' ? `サイズ変更: ${this.formatBytes(diff.size1)} → ${this.formatBytes(diff.size2)}` : ''}
+                ${guidLabel}
             </div>
         `;
 
@@ -356,16 +413,19 @@ class UnityPackageViewer {
         const previewContainer = document.getElementById('diffPreview');
 
         // プレビューを表示
+        const path1 = diff.fromPath || diff.path;
+        const path2 = diff.toPath || diff.path;
+
         if (diff.asset1) {
             const preview = UnityPackageParser.getFilePreview(diff.asset1.data, diff.asset1.type.mimeType, 5000, diff.asset1.type.extension);
-            this.renderPreview(preview1, preview, diff.status, '1', diff.path);
+            this.renderPreview(preview1, preview, diff.status, '1', path1);
         } else {
             preview1.innerHTML = '<div class="empty-state"><p>パッケージ1に存在しません</p></div>';
         }
 
         if (diff.asset2) {
             const preview = UnityPackageParser.getFilePreview(diff.asset2.data, diff.asset2.type.mimeType, 5000, diff.asset2.type.extension);
-            this.renderPreview(preview2, preview, diff.status, '2', diff.path);
+            this.renderPreview(preview2, preview, diff.status, '2', path2);
         } else {
             preview2.innerHTML = '<div class="empty-state"><p>パッケージ2に存在しません</p></div>';
         }
@@ -483,7 +543,8 @@ class UnityPackageViewer {
         const labels = {
             added: '追加',
             removed: '削除',
-            modified: '変更'
+            modified: '変更',
+            moved: '移動'
         };
         return labels[status] || status;
     }

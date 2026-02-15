@@ -381,6 +381,11 @@
             border-left-color: #ffc107;
         }
 
+        .diff-item.moved {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+
         .diff-item-status {
             display: inline-block;
             padding: 2px 8px;
@@ -403,6 +408,11 @@
         .diff-item-status.modified {
             background: #ffc107;
             color: black;
+        }
+
+        .diff-item-status.moved {
+            background: #17a2b8;
+            color: white;
         }
 
         .diff-item-path {
@@ -635,6 +645,9 @@
                     </label>
                     <label>
                         <input type="checkbox" id="filterModified" checked> 変更されたファイル
+                    </label>
+                    <label>
+                        <input type="checkbox" id="filterMoved" checked> 移動されたファイル
                     </label>
                 </div>
                 <div class="diff-list" id="diffList">

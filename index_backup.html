@@ -117,7 +117,7 @@
             margin-bottom: 15px;
         }
 
-        #fileInput, .fileInput-compare {
+        #fileInput {
             display: none;
         }
 
@@ -146,10 +146,15 @@
             overflow: hidden;
         }
 
+        #viewer-tab, #compare-tab {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
         .tab-content {
             flex: 1;
             display: flex;
-            overflow: hidden;
         }
 
         .sidebar {
@@ -306,10 +311,36 @@
             margin: 10px;
         }
 
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card h4 {
+            margin-bottom: 5px;
+            color: #667eea;
+            font-size: 0.9em;
+        }
+
         .stat-card .value {
             font-size: 1.8em;
             font-weight: bold;
             color: #333;
+        }
+
+        .diff-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .diff-controls {
@@ -331,13 +362,77 @@
 
         .diff-controls input[type="checkbox"] {
             cursor: pointer;
-        }
+        }tabs" id="tabs" style="display: none;">
+            <button class="tab-button active" data-tab="viewer">📖 ビューア</button>
+            <button class="tab-button" data-tab="compare">🔀 比較</button>
+        </div>
 
-        .diff-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
+        <div class="upload-section" id="viewerUploadSection">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h3>Unity Package を選択</h3>
+                <p>.unitypackage ファイルをここにドラッグ＆ドロップするか、クリックして選択してください</p>
+                <button class="btn">ファイルを選択</button>
+             !-- ビューアタブ -->
+            <div id="viewer-tab" class="tab-content">
+                <div class="sidebar">
+                    <div class="tree" id="treeContainer"></div>
+                </div>
+
+                <div class="content-pane">
+                    <div class="content-header">
+                        <h3 id="contentTitle">ファイルを選択してください</h3>
+                        <div class="content-info" id="contentInfo"></div>
+                    </div>
+                    <div class="content-body" id="contentBody">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👈</div>
+                            <p>ファイルツリーからファイルを選択してください</p>
+                        </div>
+                    </div>
+                    <div class="content-footer" id="contentFooter"></div>
+                </div>
+            </div>
+
+            <!-- 比較タブ -->
+            <div id="compare-tab" class="tab-content" style="display: none; flex-direction: column;">
+                <div class="diff-controls">
+                    <label>
+                        <input type="checkbox" id="filterAdded" checked> 追加されたファイル
+                    </label>
+                    <label>
+                        <input type="checkbox" id="filterRemoved" checked> 削除されたファイル
+                    </label>
+                    <label>
+                        <input type="checkbox" id="filterModified" checked> 変更されたファイル
+                    </label>
+                </div>
+                <div class="diff-list" id="diffList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>比較タブで2つのパッケージを読み込んでください</p>
+                    </div>
+                </div>
+                <div class="diff-preview" id="diffPreview" style="display: none;">
+                    <div class="diff-preview-pane">
+                        <div class="diff-preview-title">パッケージ 1</div>
+                        <div class="diff-preview-content" id="diffPreview1"></div>
+                    </div>
+                    <div class="diff-preview-pane">
+                        <div class="diff-preview-title">パッケージ 2</div>
+                        <div class="diff-preview-content" id="diffPreview2"></div>
+                    </div>
+                
+                <div>
+                    <h3 style="margin-bottom: 10px;">📦 パッケージ 2</h3>
+                    <div class="upload-area" id="uploadArea2">
+                        <div class="upload-icon">📁</div>
+                        <p>.unitypackage ファイルを選択</p>
+                        <button class="btn">ファイルを選択</button>
+                        <input type="file" class="fileInput-compare" accept=".unitypackage" data-package="2" />
+                    </div>
+                    <div id="package2-status" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; min-height: 30px;"></div>
+                </div
 
         .diff-item {
             padding: 12px;
@@ -471,99 +566,33 @@
             <p>ブラウザで .unitypackage ファイルの内容を確認できます</p>
         </div>
 
-        <div class="tabs" id="tabs">
-            <button class="tab-button active" data-tab="viewer">📖 ビューア</button>
-            <button class="tab-button" data-tab="compare">🔀 比較</button>
-        </div>
-
-        <!-- ビューアタブのアップロードセクション -->
-        <div class="upload-section" id="viewerUploadSection">
+        <div class="upload-section">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📁</div>
                 <h3>Unity Package を選択</h3>
-                <p>.unitypackage ファイルをここにドラッグ&ドロップするか、クリックして選択してください</p>
+                <p>.unitypackage ファイルをここにドラッグ＆ドロップするか、クリックして選択してください</p>
                 <button class="btn">ファイルを選択</button>
                 <input type="file" id="fileInput" accept=".unitypackage" />
             </div>
         </div>
 
-        <!-- 比較タブのアップロードセクション -->
-        <div class="upload-section" id="compareUploadSection" style="display: none;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <h3 style="margin-bottom: 10px;">📦 パッケージ 1</h3>
-                    <div class="upload-area" id="uploadArea1">
-                        <div class="upload-icon">📁</div>
-                        <p>.unitypackage ファイルを選択</p>
-                        <button class="btn">ファイルを選択</button>
-                        <input type="file" class="fileInput-compare" accept=".unitypackage" data-package="1" />
-                    </div>
-                    <div id="package1-status" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; min-height: 30px;"></div>
-                </div>
-                <div>
-                    <h3 style="margin-bottom: 10px;">📦 パッケージ 2</h3>
-                    <div class="upload-area" id="uploadArea2">
-                        <div class="upload-icon">📁</div>
-                        <p>.unitypackage ファイルを選択</p>
-                        <button class="btn">ファイルを選択</button>
-                        <input type="file" class="fileInput-compare" accept=".unitypackage" data-package="2" />
-                    </div>
-                    <div id="package2-status" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; min-height: 30px;"></div>
-                </div>
-            </div>
-        </div>
-
         <div class="main-content" id="mainContent" style="display: none;">
-            <!-- ビューアタブ -->
-            <div id="viewer-tab" class="tab-content">
-                <div class="sidebar">
-                    <div class="tree" id="treeContainer"></div>
-                </div>
-
-                <div class="content-pane">
-                    <div class="content-header">
-                        <h3 id="contentTitle">ファイルを選択してください</h3>
-                        <div class="content-info" id="contentInfo"></div>
-                    </div>
-                    <div class="content-body" id="contentBody">
-                        <div class="empty-state">
-                            <div class="empty-state-icon">👈</div>
-                            <p>ファイルツリーからファイルを選択してください</p>
-                        </div>
-                    </div>
-                    <div class="content-footer" id="contentFooter"></div>
-                </div>
+            <div class="sidebar">
+                <div class="tree" id="treeContainer"></div>
             </div>
 
-            <!-- 比較タブ -->
-            <div id="compare-tab" class="tab-content" style="flex-direction: column;">
-                <div class="diff-controls">
-                    <label>
-                        <input type="checkbox" id="filterAdded" checked> 追加されたファイル
-                    </label>
-                    <label>
-                        <input type="checkbox" id="filterRemoved" checked> 削除されたファイル
-                    </label>
-                    <label>
-                        <input type="checkbox" id="filterModified" checked> 変更されたファイル
-                    </label>
+            <div class="content-pane">
+                <div class="content-header">
+                    <h3 id="contentTitle">ファイルを選択してください</h3>
+                    <div class="content-info" id="contentInfo"></div>
                 </div>
-                <div class="diff-list" id="diffList">
+                <div class="content-body" id="contentBody">
                     <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
-                        <p>比較タブで2つのパッケージを読み込んでください</p>
+                        <div class="empty-state-icon">👈</div>
+                        <p>ファイルツリーからファイルを選択してください</p>
                     </div>
                 </div>
-                <div class="diff-preview" id="diffPreview" style="display: none;">
-                    <div class="diff-preview-pane">
-                        <div class="diff-preview-title">パッケージ 1</div>
-                        <div class="diff-preview-content" id="diffPreview1"></div>
-                    </div>
-                    <div class="diff-preview-pane">
-                        <div class="diff-preview-title">パッケージ 2</div>
-                        <div class="diff-preview-content" id="diffPreview2"></div>
-                    </div>
-                </div>
+                <div class="content-footer" id="contentFooter"></div>
             </div>
         </div>
     </div>

@@ -5,19 +5,69 @@
 class UnityPackageViewer {
     constructor() {
         this.currentPackage = null;
+        this.comparePackages = { package1: null, package2: null };
         this.selectedFile = null;
+        this.currentTab = 'viewer';
         this.init();
     }
 
     init() {
         this.setupEventListeners();
+        this.setupTabButtons();
+    }
+
+    setupTabButtons() {
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                this.switchTab(tab);
+            });
+        });
+    }
+
+    switchTab(tab) {
+        this.currentTab = tab;
+
+        // タブボタンをアップデート
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            if (btn.dataset.tab === tab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // アップロードセクション切り替え
+        const viewerUpload = document.getElementById('viewerUploadSection');
+        const compareUpload = document.getElementById('compareUploadSection');
+        const mainContent = document.getElementById('mainContent');
+
+        if (tab === 'viewer') {
+            viewerUpload.style.display = 'block';
+            compareUpload.style.display = 'none';
+            document.getElementById('viewer-tab').style.display = 'flex';
+            document.getElementById('compare-tab').style.display = 'none';
+            // ビューアにパッケージがある場合はmainContentを表示
+            if (this.currentPackage) {
+                mainContent.style.display = 'flex';
+            }
+        } else {
+            viewerUpload.style.display = 'none';
+            compareUpload.style.display = 'block';
+            document.getElementById('viewer-tab').style.display = 'none';
+            document.getElementById('compare-tab').style.display = 'flex';
+            // 比較に2つのパッケージがある場合はmainContentを表示
+            if (this.comparePackages.package1 && this.comparePackages.package2) {
+                mainContent.style.display = 'flex';
+            }
+        }
     }
 
     setupEventListeners() {
+        // ビューアタブのイベント
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
 
-        // ドラッグ＆ドロップイベント
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
@@ -36,16 +86,56 @@ class UnityPackageViewer {
             }
         });
 
-        // ファイル選択イベント
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 this.loadFile(e.target.files[0]);
             }
         });
 
-        // クリックでファイル選択を開く（uploadArea全体をクリック可能）
         uploadArea.addEventListener('click', () => {
             fileInput.click();
+        });
+
+        // 比較タブのイベント
+        this.setupCompareEventListeners();
+
+        // フィルター変更イベント
+        document.getElementById('filterAdded').addEventListener('change', () => this.updateDiffList());
+        document.getElementById('filterRemoved').addEventListener('change', () => this.updateDiffList());
+        document.getElementById('filterModified').addEventListener('change', () => this.updateDiffList());
+    }
+
+    setupCompareEventListeners() {
+        ['1', '2'].forEach(num => {
+            const uploadArea = document.getElementById(`uploadArea${num}`);
+            const fileInput = uploadArea.querySelector('.fileInput-compare');
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    this.loadCompareFile(e.dataTransfer.files[0], num);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    this.loadCompareFile(e.target.files[0], num);
+                }
+            });
+
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
         });
     }
 
@@ -57,7 +147,6 @@ class UnityPackageViewer {
 
         console.log('Loading file:', file.name, 'Size:', file.size, 'bytes');
 
-        // ローディング表示
         this.showLoading();
 
         try {
@@ -81,9 +170,240 @@ class UnityPackageViewer {
         }
     }
 
+    async loadCompareFile(file, packageNum) {
+        if (!file.name.endsWith('.unitypackage')) {
+            alert('エラー: .unitypackage ファイルを選択してください');
+            return;
+        }
+
+        const statusElement = document.getElementById(`package${packageNum}-status`);
+        statusElement.innerHTML = '⏳ 読み込み中...';
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pkg = await UnityPackageParser.parsePackage(arrayBuffer);
+
+            this.comparePackages[`package${packageNum}`] = pkg;
+            
+            const fileCount = Object.keys(pkg.assets).length;
+            const totalSize = Object.values(pkg.assets).reduce((sum, asset) => sum + asset.size, 0);
+
+            statusElement.innerHTML = `✅ 読み込み完了<br><small>${fileCount} ファイル, ${this.formatBytes(totalSize)}</small>`;
+
+            // 両方のパッケージが読み込まれたら比較を実行
+            if (this.comparePackages.package1 && this.comparePackages.package2) {
+                // mainContentを表示
+                document.getElementById('mainContent').style.display = 'flex';
+                this.updateDiffList();
+            }
+        } catch (error) {
+            console.error('Error loading compare file:', error);
+            statusElement.innerHTML = `❌ 読み込み失敗: ${error.message}`;
+        }
+    }
+
+    updateDiffList() {
+        const pkg1 = this.comparePackages.package1;
+        const pkg2 = this.comparePackages.package2;
+
+        // プレビューをリセット
+        document.getElementById('diffPreview').style.display = 'none';
+        document.getElementById('diffPreview1').innerHTML = '';
+        document.getElementById('diffPreview2').innerHTML = '';
+
+        if (!pkg1 || !pkg2) {
+            document.getElementById('diffList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <p>両方のパッケージを読み込んでください</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 差分を計算
+        const diffs = this.calculateDifferences(pkg1, pkg2);
+
+        // フィルター設定を取得
+        const filterAdded = document.getElementById('filterAdded').checked;
+        const filterRemoved = document.getElementById('filterRemoved').checked;
+        const filterModified = document.getElementById('filterModified').checked;
+
+        // フィルター適用
+        const filtered = diffs.filter(diff => {
+            if (diff.status === 'added') return filterAdded;
+            if (diff.status === 'removed') return filterRemoved;
+            if (diff.status === 'modified') return filterModified;
+            return false;
+        });
+
+        // UI更新
+        const diffList = document.getElementById('diffList');
+        if (filtered.length === 0) {
+            diffList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <p>差分がありません</p>
+                </div>
+            `;
+            return;
+        }
+
+        diffList.innerHTML = '';
+        filtered.forEach((diff, index) => {
+            const element = this.createDiffItem(diff, index);
+            diffList.appendChild(element);
+        });
+    }
+
+    calculateDifferences(pkg1, pkg2) {
+        const diffs = [];
+        const assets1 = pkg1.assets;
+        const assets2 = pkg2.assets;
+
+        const seen = new Set();
+
+        // pkg1 に存在するファイルをチェック
+        for (const [path, asset1] of Object.entries(assets1)) {
+            seen.add(path);
+            const asset2 = assets2[path];
+
+            if (!asset2) {
+                // 削除されたファイル
+                diffs.push({
+                    path,
+                    status: 'removed',
+                    size1: asset1.size,
+                    size2: 0,
+                    asset1,
+                    asset2: null
+                });
+            } else if (asset1.size !== asset2.size || asset1.guid !== asset2.guid) {
+                // 変更されたファイル
+                diffs.push({
+                    path,
+                    status: 'modified',
+                    size1: asset1.size,
+                    size2: asset2.size,
+                    asset1,
+                    asset2
+                });
+            }
+        }
+
+        // pkg2 に存在するが pkg1 に存在しないファイル
+        for (const [path, asset2] of Object.entries(assets2)) {
+            if (!seen.has(path)) {
+                diffs.push({
+                    path,
+                    status: 'added',
+                    size1: 0,
+                    size2: asset2.size,
+                    asset1: null,
+                    asset2
+                });
+            }
+        }
+
+        return diffs.sort((a, b) => a.path.localeCompare(b.path));
+    }
+
+    createDiffItem(diff, index) {
+        const element = document.createElement('div');
+        element.className = `diff-item ${diff.status}`;
+
+        const filename = diff.path.split('/').pop();
+        const sizeChange = this.formatSizeChange(diff.size1, diff.size2);
+
+        element.innerHTML = `
+            <div>
+                <span class="diff-item-status ${diff.status}">
+                    ${this.getStatusLabel(diff.status)}
+                </span>
+                <span class="diff-item-path">${diff.path}</span>
+            </div>
+            <div class="diff-item-info">
+                ${diff.status === 'removed' ? `サイズ: ${this.formatBytes(diff.size1)}` : ''}
+                ${diff.status === 'added' ? `サイズ: ${this.formatBytes(diff.size2)}` : ''}
+                ${diff.status === 'modified' ? `サイズ変更: ${diff.size1 > 0 ? this.formatBytes(diff.size1) : '新規'} → ${this.formatBytes(diff.size2)}` : ''}
+            </div>
+        `;
+
+        element.addEventListener('click', () => {
+            this.showDiffPreview(diff);
+        });
+
+        return element;
+    }
+
+    showDiffPreview(diff) {
+        const preview1 = document.getElementById('diffPreview1');
+        const preview2 = document.getElementById('diffPreview2');
+        const previewContainer = document.getElementById('diffPreview');
+
+        // プレビューを表示
+        if (diff.asset1) {
+            const preview = UnityPackageParser.getFilePreview(diff.asset1.data, diff.asset1.type.mimeType);
+            this.renderPreview(preview1, preview, diff.status, '1');
+        } else {
+            preview1.innerHTML = '<div class="empty-state"><p>パッケージ1に存在しません</p></div>';
+        }
+
+        if (diff.asset2) {
+            const preview = UnityPackageParser.getFilePreview(diff.asset2.data, diff.asset2.type.mimeType);
+            this.renderPreview(preview2, preview, diff.status, '2');
+        } else {
+            preview2.innerHTML = '<div class="empty-state"><p>パッケージ2に存在しません</p></div>';
+        }
+
+        previewContainer.style.display = 'flex';
+    }
+
+    renderPreview(container, preview, status, packageNum) {
+        container.innerHTML = '';
+
+        if (preview.type === 'image') {
+            const img = document.createElement('img');
+            img.src = preview.content;
+            img.onerror = () => {
+                container.innerHTML = '<p>画像の表示に失敗しました</p>';
+            };
+            container.appendChild(img);
+        } else if (preview.type === 'text') {
+            const pre = document.createElement('pre');
+            pre.textContent = preview.content;
+            pre.style.margin = '0';
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.wordWrap = 'break-word';
+            pre.style.fontSize = '0.9em';
+            container.appendChild(pre);
+        } else if (preview.type === 'binary') {
+            container.innerHTML = `<p style="color: #999;">${preview.content}</p>`;
+        } else {
+            container.innerHTML = `<p style="color: #999;">❌ ${preview.content}</p>`;
+        }
+    }
+
+    getStatusLabel(status) {
+        const labels = {
+            added: '追加',
+            removed: '削除',
+            modified: '変更'
+        };
+        return labels[status] || status;
+    }
+
+    formatSizeChange(size1, size2) {
+        if (size1 === 0) return `新規: ${this.formatBytes(size2)}`;
+        if (size2 === 0) return `削除: ${this.formatBytes(size1)}`;
+        const diff = size2 - size1;
+        const sign = diff > 0 ? '+' : '';
+        return `${sign}${this.formatBytes(diff)}`;
+    }
+
     displayPackage() {
         const mainContent = document.getElementById('mainContent');
-        const uploadSection = mainContent.parentElement.querySelector('.upload-section');
+        const uploadSection = document.getElementById('viewerUploadSection');
         const contentBody = document.getElementById('contentBody');
 
         // ローディング画面をクリア
@@ -338,10 +658,11 @@ class UnityPackageViewer {
     }
 
     showError(message) {
-        const mainContent = document.getElementById('mainContent');
-        const uploadSection = mainContent.parentElement.querySelector('.upload-section');
-
-        uploadSection.innerHTML += `<div class="error">❌ ${message}</div>`;
+        const uploadSection = document.getElementById('viewerUploadSection');
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.innerHTML = `❌ ${message}`;
+        uploadSection.appendChild(errorDiv);
     }
 
     formatBytes(bytes) {

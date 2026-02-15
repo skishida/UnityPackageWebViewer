@@ -47,6 +47,10 @@ class UnityPackageViewer {
             compareUpload.style.display = 'none';
             document.getElementById('viewer-tab').style.display = 'flex';
             document.getElementById('compare-tab').style.display = 'none';
+            // プレビューをリセット
+            document.getElementById('diffPreview').style.display = 'none';
+            document.getElementById('diffPreview1').innerHTML = '';
+            document.getElementById('diffPreview2').innerHTML = '';
             // ビューアにパッケージがある場合はmainContentを表示
             if (this.currentPackage) {
                 mainContent.style.display = 'flex';
@@ -344,14 +348,14 @@ class UnityPackageViewer {
         // プレビューを表示
         if (diff.asset1) {
             const preview = UnityPackageParser.getFilePreview(diff.asset1.data, diff.asset1.type.mimeType);
-            this.renderPreview(preview1, preview, diff.status, '1');
+            this.renderPreview(preview1, preview, diff.status, '1', diff.path);
         } else {
             preview1.innerHTML = '<div class="empty-state"><p>パッケージ1に存在しません</p></div>';
         }
 
         if (diff.asset2) {
             const preview = UnityPackageParser.getFilePreview(diff.asset2.data, diff.asset2.type.mimeType);
-            this.renderPreview(preview2, preview, diff.status, '2');
+            this.renderPreview(preview2, preview, diff.status, '2', diff.path);
         } else {
             preview2.innerHTML = '<div class="empty-state"><p>パッケージ2に存在しません</p></div>';
         }
@@ -359,7 +363,37 @@ class UnityPackageViewer {
         previewContainer.style.display = 'flex';
     }
 
-    renderPreview(container, preview, status, packageNum) {
+    getLanguageFromPath(filePath) {
+        const ext = filePath.substring(filePath.lastIndexOf('.')).toLowerCase();
+        const languageMap = {
+            '.cs': 'csharp',
+            '.js': 'javascript',
+            '.ts': 'typescript',
+            '.json': 'json',
+            '.xml': 'xml',
+            '.yaml': 'yaml',
+            '.yml': 'yaml',
+            '.html': 'html',
+            '.htm': 'html',
+            '.css': 'css',
+            '.scss': 'scss',
+            '.py': 'python',
+            '.rb': 'ruby',
+            '.php': 'php',
+            '.java': 'java',
+            '.cpp': 'cpp',
+            '.c': 'c',
+            '.h': 'c',
+            '.sql': 'sql',
+            '.md': 'markdown',
+            '.txt': 'plaintext',
+            '.glsl': 'glsl',
+            '.shader': 'glsl'
+        };
+        return languageMap[ext] || null;
+    }
+
+    renderPreview(container, preview, status, packageNum, filePath = '') {
         container.innerHTML = '';
 
         if (preview.type === 'image') {
@@ -370,13 +404,28 @@ class UnityPackageViewer {
             };
             container.appendChild(img);
         } else if (preview.type === 'text') {
+            const language = this.getLanguageFromPath(filePath);
+            
+            const code = document.createElement('code');
+            if (language) {
+                code.className = `language-${language}`;
+            }
+            code.textContent = preview.content;
+
             const pre = document.createElement('pre');
-            pre.textContent = preview.content;
-            pre.style.margin = '0';
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.style.wordWrap = 'break-word';
-            pre.style.fontSize = '0.9em';
+            pre.className = 'hljs-preview';
+            pre.appendChild(code);
+            
             container.appendChild(pre);
+
+            // Highlight.jsでハイライト
+            if (typeof hljs !== 'undefined') {
+                if (language) {
+                    hljs.highlightElement(code);
+                } else {
+                    hljs.highlightElement(code);
+                }
+            }
         } else if (preview.type === 'binary') {
             container.innerHTML = `<p style="color: #999;">${preview.content}</p>`;
         } else {
@@ -604,12 +653,28 @@ class UnityPackageViewer {
             };
             contentBody.appendChild(img);
         } else if (preview.type === 'text') {
+            const language = this.getLanguageFromPath(filepath);
+            
+            const code = document.createElement('code');
+            if (language) {
+                code.className = `language-${language}`;
+            }
+            code.textContent = preview.content;
+
             const pre = document.createElement('pre');
-            pre.textContent = preview.content;
-            pre.style.margin = '0';
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.style.wordWrap = 'break-word';
+            pre.className = 'hljs-preview';
+            pre.appendChild(code);
+            
             contentBody.appendChild(pre);
+
+            // Highlight.jsでハイライト
+            if (typeof hljs !== 'undefined') {
+                if (language) {
+                    hljs.highlightElement(code);
+                } else {
+                    hljs.highlightElement(code);
+                }
+            }
         } else if (preview.type === 'binary') {
             contentBody.innerHTML = `<p>${preview.content}</p>`;
         } else {

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unity Package Viewer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -446,6 +448,19 @@
             object-fit: contain;
         }
 
+        .hljs-preview {
+            margin: 0;
+            padding: 0;
+            background: transparent !important;
+            overflow-x: auto;
+        }
+
+        .hljs-preview code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -536,7 +551,7 @@
             </div>
 
             <!-- 比較タブ -->
-            <div id="compare-tab" class="tab-content" style="flex-direction: column;">
+            <div id="compare-tab" class="tab-content" style="flex-direction: column; display: none;">
                 <div class="diff-controls">
                     <label>
                         <input type="checkbox" id="filterAdded" checked> 追加されたファイル

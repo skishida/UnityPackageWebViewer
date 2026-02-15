@@ -263,6 +263,14 @@ class UnityPackageParser {
     }
 
     /**
+     * 3Dモデルファイルかどうかを判定
+     */
+    static isModelFile(mimeType, extension) {
+        const modelExtensions = ['fbx', 'obj', 'dae', 'blend', 'gltf', 'glb'];
+        return modelExtensions.includes(extension.toLowerCase());
+    }
+
+    /**
      * Uint8Array から Base64 文字列を生成
      */
     static arrayBufferToBase64(buffer) {
@@ -277,12 +285,19 @@ class UnityPackageParser {
     /**
      * ファイル内容をプレビュー用に取得
      */
-    static getFilePreview(data, mimeType, maxChars = 5000) {
+    static getFilePreview(data, mimeType, maxChars = 5000, extension = '') {
         if (this.isImageFile(mimeType)) {
             const base64 = this.arrayBufferToBase64(data);
             return {
                 type: 'image',
                 content: `data:${mimeType};base64,${base64}`
+            };
+        } else if (this.isModelFile(mimeType, extension)) {
+            // 3Dモデルファイル
+            return {
+                type: 'model',
+                content: data,
+                extension: extension.toLowerCase()
             };
         } else if (this.isTextFile(mimeType)) {
             try {
